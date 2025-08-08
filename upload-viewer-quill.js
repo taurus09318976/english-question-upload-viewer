@@ -557,7 +557,8 @@ class QuillEnglishQuestionViewer {
         });
 
         // 기존 HTML을 Delta로 변환하여 에디터에 로드
-        const htmlContent = annotation.html || annotation.text || '';
+        // 편집 진입 시에는 HTML 원문만 로드 (text에 남아있는 literal 태그 방지)
+        const htmlContent = annotation.html || '';
         if (htmlContent) {
             try {
                 const delta = this.htmlToDelta(htmlContent);
@@ -565,7 +566,9 @@ class QuillEnglishQuestionViewer {
             } catch (error) {
                 console.error('Delta 변환 오류:', error);
                 // 폴백: 텍스트만 설정
-                quill.setText(htmlContent);
+                const tmp = document.createElement('div');
+                tmp.innerHTML = htmlContent;
+                quill.setText(tmp.textContent || '');
             }
         }
 
@@ -592,10 +595,11 @@ class QuillEnglishQuestionViewer {
         try {
             // Delta를 HTML로 변환
             const delta = quill.getContents();
-            const htmlContent = this.deltaToHtml(delta);
+            let htmlContent = this.deltaToHtml(delta);
 
             // annotation 업데이트
             annotation.html = htmlContent;
+            // text에는 순수 텍스트만 저장
             annotation.text = this.htmlToText(htmlContent);
 
             // UI 업데이트
@@ -662,77 +666,23 @@ class QuillEnglishQuestionViewer {
         }
     }
 
-    // HTML을 Delta로 변환 (렌더링 이슈 최소화)
+    // HTML을 Delta로 변환 (Quill clipboard.convert 사용)
     htmlToDelta(html) {
         try {
-            // 임시 div 생성
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = html;
-            
-            // Quill.js의 clipboard 모듈을 사용하여 HTML을 Delta로 변환
-            const clipboard = Quill.import('modules/clipboard');
-            const delta = Quill.import('delta');
-            
-            // 임시 Quill 인스턴스 생성
-            const tempQuill = new Quill(document.createElement('div'), {
-                readOnly: true,
-                modules: {
-                    clipboard: {
-                        matchers: [
-                            ['div', (node, delta) => {
-                                // div 태그 처리
-                                return delta;
-                            }],
-                            ['span', (node, delta) => {
-                                // span 태그 처리
-                                return delta;
-                            }],
-                            ['p', (node, delta) => {
-                                // p 태그 처리
-                                return delta;
-                            }],
-                            ['br', (node, delta) => {
-                                // br 태그 처리
-                                return delta.compose(new delta().insert('\n'));
-                            }],
-                            ['strong', (node, delta) => {
-                                // strong 태그 처리
-                                return delta.compose(new delta().retain(delta.length(), { bold: true }));
-                            }],
-                            ['b', (node, delta) => {
-                                // b 태그 처리
-                                return delta.compose(new delta().retain(delta.length(), { bold: true }));
-                            }],
-                            ['em', (node, delta) => {
-                                // em 태그 처리
-                                return delta.compose(new delta().retain(delta.length(), { italic: true }));
-                            }],
-                            ['i', (node, delta) => {
-                                // i 태그 처리
-                                return delta.compose(new delta().retain(delta.length(), { italic: true }));
-                            }],
-                            ['u', (node, delta) => {
-                                // u 태그 처리
-                                return delta.compose(new delta().retain(delta.length(), { underline: true }));
-                            }]
-                        ]
-                    }
-                }
-            });
-            
-            // HTML을 clipboard에 붙여넣기
-            tempQuill.clipboard.dangerouslyPasteHTML(html);
-            
-            // Delta 반환
-            return tempQuill.getContents();
-            
+            const tempContainer = document.createElement('div');
+            // 입력이 text에 포함된 HTML일 수도 있으므로 그대로 주입 후 innerHTML 사용
+            tempContainer.innerHTML = html;
+
+            const tempQuill = new Quill(document.createElement('div'));
+            const delta = tempQuill.clipboard.convert(tempContainer.innerHTML);
+            return delta;
         } catch (error) {
             console.error('HTML to Delta 변환 오류:', error);
-            // 폴백: 텍스트만 추출
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = html;
-            const text = tempDiv.textContent || tempDiv.innerText || '';
-            return new Quill.import('delta')([{ insert: text }]);
+            const Delta = Quill.import('delta');
+            const tmp = document.createElement('div');
+            tmp.innerHTML = html;
+            const plain = tmp.textContent || '';
+            return new Delta([{ insert: plain }]);
         }
     }
 
