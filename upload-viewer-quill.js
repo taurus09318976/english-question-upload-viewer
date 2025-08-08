@@ -51,13 +51,23 @@ class QuillEnglishQuestionViewer {
             });
         });
 
-        // 저장 버튼 이벤트
+        // 저장/취소 버튼 이벤트 (이벤트 위임 사용)
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('save-edit-btn')) {
-                this.saveAnnotationEdit(e.target.dataset.annotationId);
+                e.preventDefault();
+                e.stopPropagation();
+                const annotationId = e.target.dataset.annotationId;
+                if (annotationId) {
+                    this.saveAnnotationEdit(annotationId);
+                }
             }
             if (e.target.classList.contains('cancel-edit-btn')) {
-                this.cancelAnnotationEdit(e.target.dataset.annotationId);
+                e.preventDefault();
+                e.stopPropagation();
+                const annotationId = e.target.dataset.annotationId;
+                if (annotationId) {
+                    this.cancelAnnotationEdit(annotationId);
+                }
             }
         });
     }
@@ -250,8 +260,38 @@ class QuillEnglishQuestionViewer {
 
     // 오류 메시지 표시
     showError(message) {
-        const questionsTab = document.getElementById('questionsTab');
-        questionsTab.innerHTML = `<div class="error">${message}</div>`;
+        // 토스트 메시지 생성
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #dc3545;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            font-weight: 500;
+            animation: slideIn 0.3s ease;
+            max-width: 400px;
+        `;
+        toast.textContent = message;
+        
+        document.body.appendChild(toast);
+        
+        // 5초 후 제거
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    document.body.removeChild(toast);
+                }
+            }, 300);
+        }, 5000);
+        
+        // 콘솔에도 출력
+        console.error('Error:', message);
     }
 
     // 파일 정보 업데이트
@@ -474,8 +514,9 @@ class QuillEnglishQuestionViewer {
 
     // Annotation 편집 시작
     startAnnotationEdit(annotationId) {
-        if (this.editingAnnotationId) {
-            this.cancelAnnotationEdit(this.editingAnnotationId);
+        // 이전 편집 중인 항목이 있으면 완전히 정리
+        if (this.editingAnnotationId && this.editingAnnotationId !== annotationId) {
+            this.finishAnnotationEdit(this.editingAnnotationId);
         }
 
         this.editingAnnotationId = annotationId;
@@ -486,10 +527,16 @@ class QuillEnglishQuestionViewer {
         const editorContainer = document.getElementById(`editor-${annotationId}`);
         const editButtons = document.getElementById(`edit-buttons-${annotationId}`);
 
+        if (!contentArea || !editorContainer || !editButtons) {
+            console.error('필요한 DOM 요소를 찾을 수 없습니다:', annotationId);
+            return;
+        }
+
         // 콘텐츠 영역 숨기기
         contentArea.style.display = 'none';
 
-        // 에디터 컨테이너 표시
+        // 에디터 컨테이너 초기화 및 표시
+        editorContainer.innerHTML = ''; // 기존 내용 완전 제거
         editorContainer.style.display = 'block';
         editButtons.style.display = 'block';
 
@@ -510,8 +557,14 @@ class QuillEnglishQuestionViewer {
         // 기존 HTML을 Delta로 변환하여 에디터에 로드
         const htmlContent = annotation.html || annotation.text || '';
         if (htmlContent) {
-            const delta = this.htmlToDelta(htmlContent);
-            quill.setContents(delta);
+            try {
+                const delta = this.htmlToDelta(htmlContent);
+                quill.setContents(delta);
+            } catch (error) {
+                console.error('Delta 변환 오류:', error);
+                // 폴백: 텍스트만 설정
+                quill.setText(htmlContent);
+            }
         }
 
         // Quill 인스턴스 저장
@@ -520,27 +573,42 @@ class QuillEnglishQuestionViewer {
 
     // Annotation 편집 저장
     saveAnnotationEdit(annotationId) {
+        console.log('저장 시작:', annotationId);
+        
         const quill = this.quillInstances.get(annotationId);
-        if (!quill) return;
+        if (!quill) {
+            console.error('Quill 인스턴스를 찾을 수 없습니다:', annotationId);
+            return;
+        }
 
         const annotation = this.findAnnotation(annotationId, this.currentData.annotations);
-        if (!annotation) return;
+        if (!annotation) {
+            console.error('Annotation을 찾을 수 없습니다:', annotationId);
+            return;
+        }
 
-        // Delta를 HTML로 변환
-        const delta = quill.getContents();
-        const htmlContent = this.deltaToHtml(delta);
+        try {
+            // Delta를 HTML로 변환
+            const delta = quill.getContents();
+            const htmlContent = this.deltaToHtml(delta);
 
-        // annotation 업데이트
-        annotation.html = htmlContent;
-        annotation.text = this.htmlToText(htmlContent);
+            // annotation 업데이트
+            annotation.html = htmlContent;
+            annotation.text = this.htmlToText(htmlContent);
 
-        // UI 업데이트
-        this.updateAnnotationDisplay(annotationId, htmlContent);
+            // UI 업데이트
+            this.updateAnnotationDisplay(annotationId, htmlContent);
 
-        // 편집 모드 종료
-        this.finishAnnotationEdit(annotationId);
+            // 편집 모드 종료
+            this.finishAnnotationEdit(annotationId);
 
-        this.showSuccess(`Annotation ${annotationId}이(가) 저장되었습니다.`);
+            this.showSuccess(`Annotation ${annotationId}이(가) 저장되었습니다.`);
+            console.log('저장 완료:', annotationId);
+            
+        } catch (error) {
+            console.error('저장 중 오류 발생:', error);
+            this.showError(`저장 중 오류가 발생했습니다: ${error.message}`);
+        }
     }
 
     // Annotation 편집 취소
@@ -554,13 +622,33 @@ class QuillEnglishQuestionViewer {
         const editorContainer = document.getElementById(`editor-${annotationId}`);
         const editButtons = document.getElementById(`edit-buttons-${annotationId}`);
 
-        // UI 복원
-        contentArea.style.display = 'block';
-        editorContainer.style.display = 'none';
-        editButtons.style.display = 'none';
+        // Quill 인스턴스 완전 제거
+        const quill = this.quillInstances.get(annotationId);
+        if (quill) {
+            // Quill 인스턴스의 DOM 요소들 완전 제거
+            const quillRoot = quill.root;
+            if (quillRoot && quillRoot.parentNode) {
+                quillRoot.parentNode.removeChild(quillRoot);
+            }
+            
+            // 툴바 제거
+            const toolbar = quill.getModule('toolbar');
+            if (toolbar && toolbar.container && toolbar.container.parentNode) {
+                toolbar.container.parentNode.removeChild(toolbar.container);
+            }
+            
+            // 인스턴스 제거
+            this.quillInstances.delete(annotationId);
+        }
 
-        // Quill 인스턴스 제거
-        this.quillInstances.delete(annotationId);
+        // UI 복원
+        if (contentArea) contentArea.style.display = 'block';
+        if (editorContainer) {
+            editorContainer.style.display = 'none';
+            editorContainer.innerHTML = ''; // 컨테이너 내용 완전 비우기
+        }
+        if (editButtons) editButtons.style.display = 'none';
+
         this.editingAnnotationId = null;
     }
 

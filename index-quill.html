@@ -382,6 +382,17 @@
             background: #a8a8a8;
         }
 
+        /* 토스트 메시지 애니메이션 */
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+
         /* 반응형 디자인 */
         @media (max-width: 768px) {
             .main-content {
