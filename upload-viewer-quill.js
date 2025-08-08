@@ -56,16 +56,18 @@ class QuillEnglishQuestionViewer {
             if (e.target.classList.contains('save-edit-btn')) {
                 e.preventDefault();
                 e.stopPropagation();
-                const annotationId = e.target.dataset.annotationId;
-                if (annotationId) {
+                const idRaw = e.target.dataset.annotationId;
+                const annotationId = Number(idRaw);
+                if (!Number.isNaN(annotationId)) {
                     this.saveAnnotationEdit(annotationId);
                 }
             }
             if (e.target.classList.contains('cancel-edit-btn')) {
                 e.preventDefault();
                 e.stopPropagation();
-                const annotationId = e.target.dataset.annotationId;
-                if (annotationId) {
+                const idRaw = e.target.dataset.annotationId;
+                const annotationId = Number(idRaw);
+                if (!Number.isNaN(annotationId)) {
                     this.cancelAnnotationEdit(annotationId);
                 }
             }
@@ -959,7 +961,4 @@ class QuillEnglishQuestionViewer {
     }
 }
 
-// 페이지 로드 시 뷰어 초기화
-document.addEventListener('DOMContentLoaded', () => {
-    new QuillEnglishQuestionViewer();
-});
+// 인스턴스 생성은 HTML에서 수행합니다 (중복 생성 방지)
