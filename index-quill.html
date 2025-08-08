@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>English Question Viewer - 편집 기능</title>
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+
+        .main-content {
+            display: flex;
+            max-width: 1400px;
+            margin: 20px auto;
+            gap: 20px;
+            padding: 0 20px;
+            min-height: calc(100vh - 140px);
+        }
+
+        .sidebar {
+            width: 300px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            padding: 20px;
+            height: fit-content;
+            position: sticky;
+            top: 120px;
+        }
+
+        .upload-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px dashed #667eea;
+        }
+
+        .upload-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .file-upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            background: white;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .file-upload-area:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .file-upload-area.dragover {
+            border-color: #667eea;
+            background: #e6f3ff;
+        }
+
+        .upload-text {
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            font-size: 0.9rem;
+            color: #999;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .file-input-container {
+            margin-bottom: 20px;
+        }
+
+        .file-input-container label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .file-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .file-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .file-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid #e1e5e9;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .file-item:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+            transform: translateY(-1px);
+        }
+
+        .file-item.active {
+            border-color: #667eea;
+            background: #e6f3ff;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .content-area {
+            flex: 1;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        .content-header {
+            background: #f8f9fa;
+            padding: 20px;
+            border-bottom: 1px solid #e1e5e9;
+        }
+
+        .content-header h2 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 1.5rem;
+        }
+
+        .content-header p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e1e5e9;
+        }
+
+        .tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            color: #666;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab:hover {
+            background: #e9ecef;
+            color: #333;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: white;
+        }
+
+        .tab-content {
+            padding: 20px;
+            max-height: calc(100vh - 300px);
+            overflow-y: auto;
+        }
+
+        .question-viewer {
+            display: none;
+        }
+
+        .question-viewer.active {
+            display: block;
+        }
+
+        .question-container {
+            background: #fafafa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .question-header {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .question-number {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .question-type {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .question-section {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            background: #e9ecef;
+            color: #333;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .annotation-content {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+
+        .annotation-text-content {
+            line-height: 1.6;
+            margin-top: 10px;
+        }
+
+        .quill-editor-container {
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            background: white;
+        }
+
+        .ql-editor {
+            min-height: 100px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .ql-toolbar {
+            border-top: none;
+            border-left: none;
+            border-right: none;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #dc3545;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 6px;
+        }
+
+        .export-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .export-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.3s ease;
+        }
+
+        .export-btn:hover {
+            background: #218838;
+        }
+
+        .export-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        /* 스크롤바 스타일링 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        /* 반응형 디자인 */
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+                padding: 0 10px;
+            }
+
+            .sidebar {
+                width: 100%;
+                position: static;
+            }
+
+            .content-area {
+                margin-top: 20px;
+            }
+
+            .tabs {
+                flex-wrap: wrap;
+            }
+
+            .tab {
+                flex: 1;
+                min-width: 120px;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>📚 English Question Viewer - 편집 기능</h1>
+            <p>중고등학생 영어문항 검토 시스템 - JSON 파일 업로드 및 편집</p>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="sidebar">
+            <div class="upload-section">
+                <h3>📁 JSON 파일 업로드</h3>
+                <div class="file-upload-area" id="uploadArea">
+                    <div class="upload-text">파일을 드래그하거나 클릭하여 업로드</div>
+                    <div class="upload-hint">지원 형식: .json</div>
+                </div>
+                <input type="file" id="fileInput" accept=".json" multiple>
+            </div>
+            
+            <div class="file-input-container">
+                <label for="searchInput">파일 검색:</label>
+                <input type="text" id="searchInput" class="file-input" placeholder="파일명으로 검색...">
+            </div>
+            
+            <div class="file-list" id="fileList">
+                <div class="empty-state">
+                    <h3>업로드된 파일이 없습니다</h3>
+                    <p>위에서 JSON 파일을 업로드해주세요.</p>
+                </div>
+            </div>
+
+            <div class="export-section">
+                <button class="export-btn" id="exportBtn" disabled>
+                    💾 수정된 JSON 내보내기
+                </button>
+                <p style="font-size: 0.8rem; color: #666; margin-top: 8px;">
+                    편집 후 수정된 JSON 파일을 다운로드할 수 있습니다.
+                </p>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <div class="content-header">
+                <h2 id="currentFileName">파일을 선택해주세요</h2>
+                <p id="fileMeta">파일 정보가 여기에 표시됩니다.</p>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" data-tab="questions">📝 문항 보기</button>
+                <button class="tab" data-tab="rawJson">🔧 원본 JSON</button>
+                <button class="tab" data-tab="htmlContent">🌐 HTML 보기</button>
+            </div>
+
+            <div class="tab-content">
+                <div id="questionsTab" class="question-viewer active">
+                    <div class="empty-state">
+                        <h3>JSON 파일을 업로드해주세요</h3>
+                        <p>왼쪽에서 JSON 파일을 업로드하면 문항들이 여기에 표시됩니다.</p>
+                    </div>
+                </div>
+
+                <div id="rawJsonTab" class="question-viewer">
+                    <pre id="rawJson" style="background: #f8f9fa; padding: 20px; border-radius: 6px; overflow-x: auto; font-size: 0.9rem; line-height: 1.4;">원본 JSON이 여기에 표시됩니다.</pre>
+                </div>
+
+                <div id="htmlContentTab" class="question-viewer">
+                    <div id="htmlContent">
+                        <div class="empty-state">
+                            <h3>HTML 콘텐츠</h3>
+                            <p>HTML 형식으로 렌더링된 콘텐츠가 여기에 표시됩니다.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+    <script src="upload-viewer-quill.js"></script>
+    <script>
+        // 내보내기 버튼 이벤트
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            if (window.viewer) {
+                window.viewer.exportModifiedJson();
+            }
+        });
+
+        // 뷰어 인스턴스를 전역으로 저장
+        document.addEventListener('DOMContentLoaded', () => {
+            window.viewer = new QuillEnglishQuestionViewer();
+        });
+    </script>
+</body>
+</html>
